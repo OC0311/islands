@@ -2,11 +2,13 @@ package block
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/gob"
+	"fmt"
 	"log"
-	"strconv"
+	"os"
 	"time"
+
+	"github.com/jedib0t/go-pretty/table"
 )
 
 type Block struct {
@@ -15,7 +17,7 @@ type Block struct {
 	Data          []byte
 	Hash          []byte
 	Height        int64
-	Nonce int64
+	Nonce         int64
 }
 
 // 创建新的区块
@@ -28,58 +30,60 @@ func NewBlock(data []byte, height int64, PrevBlockHash []byte) *Block {
 	}
 
 	// 工作量证明
-	powIns :=  NewProofOfWork(block)
+	powIns := NewProofOfWork(block)
 	hash, nonce := powIns.Run()
 
-	block.Hash  = hash[:]
+	block.Hash = hash[:]
 	block.Nonce = nonce
-	//block.SetHash()
 	return block
 }
 
-
 func CreateGenesisBlock(data []byte) *Block {
-	return NewBlock(data, 1, []byte{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})
+	return NewBlock(data, 1, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 }
-
-func (b *Block)SetHash(){
-	height := utils.IntToHex(b.Height)
-	timeString := strconv.FormatInt(b.Timestamp,2)
-	timeBytes := []byte(timeString)
-
-	all :=bytes.Join([][]byte{
-		height, timeBytes, b.Data, b.PrevBlockHash, b.Hash,
-	}, []byte{})
-
-	hash := sha256.Sum256(all)
-	b.Hash = hash[:]
-}
-
 
 // TODO 使用protobuff
-func (b *Block)Serialize() []byte {
+func (b *Block) Serialize() []byte {
 
 	var result bytes.Buffer
 	encoder := gob.NewEncoder(&result)
 	err := encoder.Encode(b)
 
-	if err != nil{
+	if err != nil {
 		log.Panic(err)
 	}
 
 	return result.Bytes()
 }
 
+func (b *Block) PrintBlock() {
+
+	tb := table.NewWriter()
+	tb.SetOutputMirror(os.Stdout)
+	tb.AppendHeader(table.Row{"内容", "区块信息"})
+	tb.AppendRows([]table.Row{
+		{"Height", b.Height},
+		{"Data", string(b.Data)},
+		{"Timestamp", time.Unix(b.Timestamp, 0).Format("2006-01-02 15:04:05")},
+		{"Nonce", b.Nonce},
+		{"Hash", byteForString(b.Hash)},
+		{"PrevHash", byteForString(b.PrevBlockHash)},
+	})
+	tb.SetStyle(table.StyleDefault)
+	tb.Render()
+}
+
 func UnSerialize(bt []byte) *Block {
 	var block Block
 	decoder := gob.NewDecoder(bytes.NewReader(bt))
 	err := decoder.Decode(&block)
-	if err != nil{
+	if err != nil {
 		log.Panic(err)
 	}
 
 	return &block
 }
 
-
-
+func byteForString(b []byte) string {
+	return fmt.Sprintf("%x", b)
+}

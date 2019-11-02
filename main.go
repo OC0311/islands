@@ -1,34 +1,37 @@
 package main
 
 import (
-	"fmt"
-	"github.com/jiangjincc/islands/block"
-	"github.com/boltdb/bolt"
 	"log"
+
+	"github.com/boltdb/bolt"
+	"github.com/jiangjincc/islands/block"
 )
 
-func init (){
-	db, err := bolt.Open("my.db", 0600, nil)
+const (
+	_blockBucketName = "blocks"
+)
+
+var (
+	db *bolt.DB
+)
+
+func init() {
+	var err error
+
+	db, err = bolt.Open("my.db", 0600, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer db.Close()
+
 }
 
-
-func main(){
-	//b := block.CreateBlockchainWithGenesisBlock()
-	//b.Add([]byte("trade 100"))
-	//b.Add([]byte("trade 200"))
-	//b.Add([]byte("trade 500"))
+func main() {
+	defer db.Close()
+	b := block.CreateBlockchainWithGenesisBlock()
+	_ = b.AddBlockToBlockChain([]byte("trade 100 RMB"))
+	_ = b.AddBlockToBlockChain([]byte("trade 200 RMB"))
+	_ = b.AddBlockToBlockChain([]byte("trade 500 RMB"))
+	b.PrintBlocks()
 	//fmt.Println(b)
 
-
-	// 验证区块的有效性
-	bc := block.NewBlock([]byte("test"), 1, []byte{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0})
-	pow := block.NewProofOfWork(bc)
-	fmt.Println(bc.Serialize())
-	fmt.Println(pow.IsValid())
 }
-
-
