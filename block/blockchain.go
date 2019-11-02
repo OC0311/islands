@@ -95,26 +95,13 @@ func (bc *Blockchain) AddBlockToBlockChain(data []byte) error {
 
 func (bc *Blockchain) PrintBlocks() error {
 	var (
-		block       *Block
 		currentHash []byte = bc.Tip
 	)
 
+	iterator := NewBlockIterator(bc.DB, currentHash)
 	for {
-		err := bc.DB.View(func(tx *bolt.Tx) error {
-			bucket := tx.Bucket([]byte(_blockBucketName))
-
-			blockBytes := bucket.Get(currentHash)
-			block = UnSerialize(blockBytes)
-
-			// 打印区块信息
-			block.PrintBlock()
-			return nil
-		})
-
-		if err != nil {
-			log.Panic(err)
-		}
-
+		block := iterator.Next()
+		block.PrintBlock()
 		// 判断是否是创世去区块
 		var hashInt big.Int
 		if big.NewInt(0).Cmp(hashInt.SetBytes(block.PrevBlockHash)) == 0 {
@@ -122,7 +109,6 @@ func (bc *Blockchain) PrintBlocks() error {
 		}
 
 		currentHash = block.PrevBlockHash
-
 	}
 
 	return nil

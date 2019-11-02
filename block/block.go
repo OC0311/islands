@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/boltdb/bolt"
+
 	"github.com/jedib0t/go-pretty/table"
 )
 
@@ -86,4 +88,41 @@ func UnSerialize(bt []byte) *Block {
 
 func byteForString(b []byte) string {
 	return fmt.Sprintf("%x", b)
+}
+
+type Iterator struct {
+	DB          *bolt.DB
+	CurrentHash []byte
+}
+
+func NewBlockIterator(db *bolt.DB, current []byte) *Iterator {
+	return &Iterator{
+		DB:          db,
+		CurrentHash: current,
+	}
+}
+
+func (i *Iterator) Next() *Block {
+	var (
+		block *Block
+	)
+
+	err := i.DB.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(_blockBucketName))
+
+		blockBytes := bucket.Get(i.CurrentHash)
+		block = UnSerialize(blockBytes)
+
+		// 打印区块信息
+		// block.PrintBlock()
+
+		i.CurrentHash = block.PrevBlockHash
+		return nil
+	})
+
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return block
 }
