@@ -1,15 +1,16 @@
 package block
 
 import (
+	"fmt"
 	"log"
-	"math/big"
+	"os"
 
 	"github.com/boltdb/bolt"
 )
 
 const (
 	_genesisBlockHeight = 1
-	_dbName             = "blockchain.db"
+	_dbName             = "/Users/admin/workspace/project/github.com/jiangjincc/islands/blockchain.db"
 	_blockBucketName    = "blocks"
 	_topHash            = "top_hash"
 )
@@ -21,10 +22,13 @@ type Blockchain struct {
 }
 
 // 生成创世区块函数的blockchain
-func CreateBlockchainWithGenesisBlock() *Blockchain {
-	var (
-		blockHash []byte
-	)
+func CreateBlockchainWithGenesisBlock() {
+	// 判断数据库文件是否存在
+	if dbIsExist(_dbName) {
+		fmt.Println("区块已经存在")
+		return
+	}
+
 	db, err := bolt.Open(_dbName, 0600, nil)
 	if err != nil {
 		log.Panic(err)
@@ -43,9 +47,8 @@ func CreateBlockchainWithGenesisBlock() *Blockchain {
 		if err != nil {
 			return err
 		}
-		blockHash = genesisBlock.Hash
 		// save last hash
-		err = bucket.Put([]byte(_topHash), blockHash)
+		err = bucket.Put([]byte(_topHash), genesisBlock.Hash)
 
 		return err
 	})
@@ -54,11 +57,48 @@ func CreateBlockchainWithGenesisBlock() *Blockchain {
 		log.Panic(err)
 	}
 
-	blockChain := &Blockchain{
-		Tip: blockHash,
-		DB:  db,
+}
+
+func GetBlockchain() *Blockchain {
+	var (
+		blockchain *Blockchain
+	)
+
+	if !dbIsExist(_dbName) {
+		fmt.Println("请初始化区块链")
+		return nil
 	}
-	return blockChain
+
+	db, err := bolt.Open(_dbName, 0600, nil)
+	if err != nil {
+		fmt.Println(err)
+		return nil
+	}
+
+	_ = db.View(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket([]byte(_blockBucketName))
+		topHash := bucket.Get([]byte(_topHash))
+
+		blockchain = &Blockchain{
+			Tip: topHash,
+			DB:  db,
+		}
+
+		return nil
+	})
+
+	return blockchain
+}
+
+func dbIsExist(dbName string) bool {
+	_, err := os.Open(dbName)
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+	}
+	return true
 }
 
 // 添加新区块到链中
@@ -93,23 +133,17 @@ func (bc *Blockchain) AddBlockToBlockChain(data []byte) error {
 	return err
 }
 
-func (bc *Blockchain) PrintBlocks() error {
+func (bc *Blockchain) PrintBlocks() {
 	var (
 		currentHash []byte = bc.Tip
 	)
 
 	iterator := NewBlockIterator(bc.DB, currentHash)
 	for {
-		block := iterator.Next()
+		block, isNext := iterator.Next()
 		block.PrintBlock()
-		// 判断是否是创世去区块
-		var hashInt big.Int
-		if big.NewInt(0).Cmp(hashInt.SetBytes(block.PrevBlockHash)) == 0 {
+		if !isNext {
 			break
 		}
-
-		currentHash = block.PrevBlockHash
 	}
-
-	return nil
 }
