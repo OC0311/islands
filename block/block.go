@@ -2,6 +2,7 @@ package block
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/gob"
 	"fmt"
 	"log"
@@ -14,14 +15,14 @@ import (
 type Block struct {
 	Timestamp     int64
 	PrevBlockHash []byte
-	Data          []byte
+	Data          []*Transaction
 	Hash          []byte
 	Height        int64
 	Nonce         int64
 }
 
 // 创建新的区块
-func NewBlock(data []byte, height int64, PrevBlockHash []byte) *Block {
+func NewBlock(data []*Transaction, height int64, PrevBlockHash []byte) *Block {
 	block := &Block{
 		Timestamp:     time.Now().UTC().Unix(),
 		PrevBlockHash: PrevBlockHash,
@@ -38,7 +39,7 @@ func NewBlock(data []byte, height int64, PrevBlockHash []byte) *Block {
 	return block
 }
 
-func CreateGenesisBlock(data []byte) *Block {
+func CreateGenesisBlock(data []*Transaction) *Block {
 	return NewBlock(data, 1, []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 }
 
@@ -56,6 +57,21 @@ func (b *Block) Serialize() []byte {
 	return result.Bytes()
 }
 
+func (b *Block) HashTransaction() []byte {
+	var (
+		txs  [][]byte
+		hash [32]byte
+	)
+
+	// 只对hash进行计算
+	for i := 0; i < len(b.Data); i++ {
+		txs = append(txs, b.Data[i].TxHash)
+	}
+	hash = sha256.Sum256(bytes.Join(txs, []byte{}))
+
+	return hash[:]
+}
+
 func (b *Block) PrintBlock() {
 
 	tb := table.NewWriter()
@@ -63,7 +79,7 @@ func (b *Block) PrintBlock() {
 	tb.AppendHeader(table.Row{"内容", "区块信息"})
 	tb.AppendRows([]table.Row{
 		{"Height", b.Height},
-		{"Data", string(b.Data)},
+		{"Data", b.HashTransaction()},
 		{"Timestamp", time.Unix(b.Timestamp, 0).Format("2006-01-02 15:04:05")},
 		{"Nonce", b.Nonce},
 		{"Hash", byteForString(b.Hash)},

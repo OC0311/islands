@@ -22,7 +22,7 @@ type Blockchain struct {
 }
 
 // 生成创世区块函数的blockchain
-func CreateBlockchainWithGenesisBlock() {
+func CreateBlockchainWithGenesisBlock(address string) {
 	// 判断数据库文件是否存在
 	if dbIsExist(_dbName) {
 		fmt.Println("区块已经存在")
@@ -40,8 +40,7 @@ func CreateBlockchainWithGenesisBlock() {
 			return err
 		}
 
-		data := "Genesis Block"
-		genesisBlock := CreateGenesisBlock([]byte(data))
+		genesisBlock := CreateGenesisBlock([]*Transaction{NewCoinBaseTransaction(address)})
 
 		err = bucket.Put([]byte(genesisBlock.Hash), genesisBlock.Serialize())
 		if err != nil {
@@ -66,7 +65,7 @@ func GetBlockchain() *Blockchain {
 
 	if !dbIsExist(_dbName) {
 		fmt.Println("请初始化区块链")
-		return nil
+		os.Exit(0)
 	}
 
 	db, err := bolt.Open(_dbName, 0600, nil)
@@ -102,7 +101,7 @@ func dbIsExist(dbName string) bool {
 }
 
 // 添加新区块到链中
-func (bc *Blockchain) AddBlockToBlockChain(data []byte) error {
+func (bc *Blockchain) AddBlockToBlockChain(data []*Transaction) error {
 
 	err := bc.DB.Update(func(tx *bolt.Tx) error {
 		// 获取最新区块的信息

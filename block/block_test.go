@@ -10,7 +10,7 @@ import (
 func TestBlockchain_PrintBlocks(t *testing.T) {
 	b := &Block{
 		Height: 1,
-		Data:   []byte("data"),
+		Data:   []*Transaction{},
 	}
 
 	tb := table.NewWriter()
@@ -18,7 +18,7 @@ func TestBlockchain_PrintBlocks(t *testing.T) {
 	tb.AppendHeader(table.Row{"内容", "区块信息"})
 	tb.AppendRows([]table.Row{
 		{"区块高度", b.Height},
-		{"区块数据", string(b.Data)},
+		{"区块数据", b.HashTransaction()},
 	})
 	tb.SetStyle(table.StyleDefault)
 	tb.Render()
