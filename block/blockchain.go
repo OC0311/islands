@@ -132,6 +132,52 @@ func (bc *Blockchain) AddBlockToBlockChain(data []*Transaction) error {
 	return err
 }
 
+func (bc *Blockchain) MineNewBlock(from, to, amount []string) {
+	// 处理交易逻辑
+	var (
+		block *Block
+		txs   []*Transaction
+	)
+
+	// 获取最新区块
+	err := bc.DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(_blockBucketName))
+		if b != nil {
+			hash := b.Get([]byte(_topHash))
+			blockBytes := b.Get([]byte(hash))
+			block = UnSerialize(blockBytes)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		panic(err)
+	}
+
+	newBlock := NewBlock(txs, block.Height+1, block.Hash)
+	err = bc.DB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(_blockBucketName))
+		if b != nil {
+			err := b.Put([]byte(newBlock.Hash), newBlock.Serialize())
+			if err != nil {
+				return err
+			}
+
+			err = b.Put([]byte(_topHash), []byte(newBlock.Hash))
+			if err != nil {
+				return err
+			}
+
+			bc.Tip = newBlock.Hash
+
+		}
+		// 更新最新区块的信息
+		return nil
+	})
+
+}
+
 func (bc *Blockchain) PrintBlocks() {
 	var (
 		currentHash []byte = bc.Tip

@@ -14,5 +14,6 @@ var (
 func CmdExecute() {
 	// 链相关命令
 	chainCmdExecute(rootCmd)
+	txCmdExecute(rootCmd)
 	_ = rootCmd.Execute()
 }
