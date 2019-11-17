@@ -2,6 +2,7 @@ package block
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/gob"
 	"encoding/hex"
 	"log"
@@ -102,6 +103,7 @@ func (t *Transaction) SetHash() {
 	if err != nil {
 		log.Panic(err)
 	}
+	hash := sha256.Sum256(result.Bytes())
 
-	t.TxHash = result.Bytes()[:]
+	t.TxHash = hash[:]
 }
