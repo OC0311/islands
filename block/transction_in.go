@@ -8,3 +8,7 @@ type TXInput struct {
 	// 3. 用户名
 	ScriptSig string // 花费的是谁的钱
 }
+
+func (in *TXInput) UnLockWithAddress(address string) bool {
+	return in.ScriptSig == address
+}

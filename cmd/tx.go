@@ -13,6 +13,8 @@ var (
 	to     string
 	amount string
 
+	address string
+
 	txCmd = &cobra.Command{
 		Use:   "tx",
 		Short: "交易相关命令",
@@ -28,6 +30,17 @@ var (
 			b.MineNewBlock(utils.JsonToArray(from), utils.JsonToArray(to), utils.JsonToArray(amount))
 		},
 	}
+
+	getBalanceCmd = &cobra.Command{
+		Use:   "balance",
+		Short: "查询月余额",
+		Long:  ``,
+		Run: func(cmd *cobra.Command, args []string) {
+			b := block.GetBlockchain()
+			b.GetBalance(address)
+
+		},
+	}
 )
 
 func txCmdExecute(rootCmd *cobra.Command) {
@@ -41,6 +54,10 @@ func txCmdExecute(rootCmd *cobra.Command) {
 	txSendCmd.Flags().StringVarP(&amount, "amount", "a", "", "金额")
 	_ = txSendCmd.MarkFlagRequired("amount")
 
+	getBalanceCmd.Flags().StringVarP(&address, "address", "a", "", "地址")
+	_ = getBalanceCmd.MarkFlagRequired("address")
+
 	rootCmd.AddCommand(txCmd)
 	txCmd.AddCommand(txSendCmd)
+	txCmd.AddCommand(getBalanceCmd)
 }

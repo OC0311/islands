@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	data    string
-	address string
+	data     string
+	addresss string
 
 	chainCmd = &cobra.Command{
 		Use:   "chain",
@@ -48,7 +48,7 @@ var (
 		Short: "初始化区块链",
 		Long:  ``,
 		Run: func(cmd *cobra.Command, args []string) {
-			block.CreateBlockchainWithGenesisBlock(address)
+			block.CreateBlockchainWithGenesisBlock(addresss)
 		},
 	}
 )
@@ -58,7 +58,7 @@ func chainCmdExecute(rootCmd *cobra.Command) {
 	chainAddCmd.Flags().StringVarP(&data, "data", "d", "", "区块数据 (required)")
 	_ = chainAddCmd.MarkFlagRequired("data")
 
-	chainInitCmd.Flags().StringVarP(&address, "address", "a", "", "地址(required)")
+	chainInitCmd.Flags().StringVarP(&addresss, "address", "a", "", "地址(required)")
 	_ = chainAddCmd.MarkFlagRequired("address")
 
 	rootCmd.AddCommand(chainCmd)

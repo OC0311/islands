@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"os"
@@ -15,7 +16,7 @@ import (
 type Block struct {
 	Timestamp     int64
 	PrevBlockHash []byte
-	Data          []*Transaction
+	Txs           []*Transaction
 	Hash          []byte
 	Height        int64
 	Nonce         int64
@@ -26,7 +27,7 @@ func NewBlock(data []*Transaction, height int64, PrevBlockHash []byte) *Block {
 	block := &Block{
 		Timestamp:     time.Now().UTC().Unix(),
 		PrevBlockHash: PrevBlockHash,
-		Data:          data,
+		Txs:           data,
 		Height:        height,
 	}
 
@@ -64,8 +65,8 @@ func (b *Block) HashTransaction() []byte {
 	)
 
 	// 只对hash进行计算
-	for i := 0; i < len(b.Data); i++ {
-		txs = append(txs, b.Data[i].TxHash)
+	for i := 0; i < len(b.Txs); i++ {
+		txs = append(txs, b.Txs[i].TxHash)
 	}
 	hash = sha256.Sum256(bytes.Join(txs, []byte{}))
 
@@ -77,9 +78,21 @@ func (b *Block) PrintBlock() {
 	tb := table.NewWriter()
 	tb.SetOutputMirror(os.Stdout)
 	tb.AppendHeader(table.Row{"内容", "区块信息"})
+
+	for _, v := range b.Txs {
+		fmt.Println("交易信息:")
+
+		for _, vv := range v.In {
+			fmt.Println("交易输出", vv.ScriptSig, vv.Vout, hex.EncodeToString(vv.TxHash))
+		}
+		for _, vv := range v.Out {
+			fmt.Println("未花费", vv.Value, vv.ScriptPubKey)
+		}
+	}
+
 	tb.AppendRows([]table.Row{
 		{"Height", b.Height},
-		{"Data", b.HashTransaction()},
+		{"Txs", b.HashTransaction()},
 		{"Timestamp", time.Unix(b.Timestamp, 0).Format("2006-01-02 15:04:05")},
 		{"Nonce", b.Nonce},
 		{"Hash", byteForString(b.Hash)},

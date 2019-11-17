@@ -10,7 +10,7 @@ import (
 func TestBlockchain_PrintBlocks(t *testing.T) {
 	b := &Block{
 		Height: 1,
-		Data:   []*Transaction{},
+		Txs:    []*Transaction{},
 	}
 
 	tb := table.NewWriter()

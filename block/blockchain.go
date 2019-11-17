@@ -1,9 +1,11 @@
 package block
 
 import (
+	"encoding/hex"
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/boltdb/bolt"
 )
@@ -139,6 +141,12 @@ func (bc *Blockchain) MineNewBlock(from, to, amount []string) {
 		txs   []*Transaction
 	)
 
+	for i, address := range from {
+		// 构建多个交易
+		a, _ := strconv.Atoi(amount[i])
+		txs = append(txs, NewSimpleTransaction(address, to[i], int64(a), bc, txs))
+	}
+
 	// 获取最新区块
 	err := bc.DB.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(_blockBucketName))
@@ -170,12 +178,39 @@ func (bc *Blockchain) MineNewBlock(from, to, amount []string) {
 			}
 
 			bc.Tip = newBlock.Hash
-
 		}
 		// 更新最新区块的信息
 		return nil
 	})
 
+}
+
+// 找到需要花费的utxo
+// TODO 需要找到最合适的utxo
+func (bc *Blockchain) FindSpendableUTXOS(from string, amount int64, txs []*Transaction) (int64, map[string][]int) {
+
+	// 找到合适的utxo 拿出来花费
+	var (
+		value         int64
+		allUTXO       = bc.UTXOs(from, txs)
+		spendableUTXO = make(map[string][]int)
+	)
+
+	for _, out := range allUTXO {
+		value += out.OutPut.Value
+		hash := hex.EncodeToString(out.TxHash)
+		spendableUTXO[hash] = append(spendableUTXO[hash], out.Index)
+		if value >= amount {
+			break
+		}
+	}
+
+	if value < amount {
+		fmt.Printf("账户【%s】余额不足：%d \n", from, value)
+		os.Exit(0)
+	}
+
+	return value, spendableUTXO
 }
 
 func (bc *Blockchain) PrintBlocks() {
@@ -191,4 +226,146 @@ func (bc *Blockchain) PrintBlocks() {
 			break
 		}
 	}
+}
+
+func (bc *Blockchain) GetBalance(address string) {
+	var (
+		amount int64 = 0
+	)
+	txs := bc.UTXOs(address, []*Transaction{})
+	for _, v := range txs {
+		amount += v.OutPut.Value
+	}
+	fmt.Printf("账户[ %s ]余额为: %d \n", address, amount)
+}
+
+func (bc *Blockchain) UTXOs(address string, txs []*Transaction) []*UTXO {
+	var (
+		currentHash []byte = bc.Tip
+		spentTxs           = make(map[string][]int)
+		unUTXOs     []*UTXO
+	)
+
+	// 处理未打包区块
+	for _, tx := range txs {
+		if !tx.IsCoinbaseTransaction() {
+			// 是否是address 的花费
+			for _, in := range tx.In {
+				if in.UnLockWithAddress(address) {
+					key := hex.EncodeToString(in.TxHash)
+					spentTxs[key] = append(spentTxs[key], in.Vout)
+				}
+			}
+		}
+	}
+
+	for _, tx := range txs {
+	work1:
+		for index, out := range tx.Out {
+			if out.UnLockWithAddress(address) {
+				if len(spentTxs) == 0 {
+					utxo := &UTXO{
+						TxHash: tx.TxHash,
+						Index:  index,
+						OutPut: out,
+					}
+					unUTXOs = append(unUTXOs, utxo)
+				} else {
+					for hash, indexArray := range spentTxs {
+						// 说明已经被花费
+						if hash == hex.EncodeToString(tx.TxHash) {
+							var isUnSpentUTXO = false
+							for _, outIndex := range indexArray {
+								if index == outIndex {
+									isUnSpentUTXO = true
+									continue work1
+								}
+								if !isUnSpentUTXO {
+									utxo := &UTXO{
+										TxHash: tx.TxHash,
+										Index:  index,
+										OutPut: out,
+									}
+									unUTXOs = append(unUTXOs, utxo)
+								}
+
+							}
+						} else {
+							utxo := &UTXO{
+								TxHash: tx.TxHash,
+								Index:  index,
+								OutPut: out,
+							}
+							unUTXOs = append(unUTXOs, utxo)
+						}
+					}
+				}
+
+			}
+
+		}
+	}
+
+	iterator := NewBlockIterator(bc.DB, currentHash)
+	for {
+		block, isNext := iterator.Next()
+
+		for i := len(block.Txs) - 1; i >= 0; i-- {
+			tx := block.Txs[i]
+
+			if !tx.IsCoinbaseTransaction() {
+				// 是否是address 的花费
+				for _, in := range tx.In {
+					if in.UnLockWithAddress(address) {
+						key := hex.EncodeToString(in.TxHash)
+						spentTxs[key] = append(spentTxs[key], in.Vout)
+					}
+				}
+			}
+
+			// 是否为自己的未花费
+		work:
+			for index, out := range tx.Out {
+				if out.UnLockWithAddress(address) {
+					// 判断是否被花费
+					if len(spentTxs) != 0 {
+						isSpend := false
+						for hash, indexArray := range spentTxs {
+							for _, i := range indexArray {
+								// 说明已经被花费
+								if i == index && hash == hex.EncodeToString(tx.TxHash) {
+									isSpend = true
+									continue work
+								}
+							}
+
+						}
+						if !isSpend {
+							utxo := &UTXO{
+								TxHash: tx.TxHash,
+								Index:  index,
+								OutPut: out,
+							}
+							unUTXOs = append(unUTXOs, utxo)
+						}
+					} else {
+						utxo := &UTXO{
+							TxHash: tx.TxHash,
+							Index:  index,
+							OutPut: out,
+						}
+						unUTXOs = append(unUTXOs, utxo)
+					}
+
+				}
+
+			}
+		}
+
+		if !isNext {
+			break
+		}
+	}
+
+	return unUTXOs
 }
