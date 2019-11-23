@@ -7,6 +7,8 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/jiangjincc/islands/wallet"
+
 	"github.com/boltdb/bolt"
 )
 
@@ -29,6 +31,11 @@ func CreateBlockchainWithGenesisBlock(address string) {
 	if dbIsExist(_dbName) {
 		fmt.Println("区块已经存在")
 		return
+	}
+
+	if !wallet.IsValidForAddress([]byte(address)) {
+		log.Println("无效地址")
+		os.Exit(1)
 	}
 
 	db, err := bolt.Open(_dbName, 0600, nil)
@@ -141,6 +148,12 @@ func (bc *Blockchain) MineNewBlock(from, to, amount []string) {
 		txs   []*Transaction
 	)
 
+	for index, address := range from {
+		if !wallet.IsValidForAddress([]byte(address)) || !!wallet.IsValidForAddress([]byte(to[index])) {
+			log.Println("无效地址")
+			os.Exit(1)
+		}
+	}
 	for i, address := range from {
 		// 构建多个交易
 		a, _ := strconv.Atoi(amount[i])
@@ -232,6 +245,10 @@ func (bc *Blockchain) GetBalance(address string) {
 	var (
 		amount int64 = 0
 	)
+	if !wallet.IsValidForAddress([]byte(address)) {
+		log.Println("无效地址")
+		os.Exit(1)
+	}
 	txs := bc.UTXOs(address, []*Transaction{})
 	for _, v := range txs {
 		amount += v.OutPut.Value

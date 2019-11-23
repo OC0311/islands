@@ -48,6 +48,7 @@ var (
 		Short: "初始化区块链",
 		Long:  ``,
 		Run: func(cmd *cobra.Command, args []string) {
+
 			block.CreateBlockchainWithGenesisBlock(addresss)
 		},
 	}

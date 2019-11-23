@@ -15,5 +15,6 @@ func CmdExecute() {
 	// 链相关命令
 	chainCmdExecute(rootCmd)
 	txCmdExecute(rootCmd)
+	walletCmdExecute(rootCmd)
 	_ = rootCmd.Execute()
 }

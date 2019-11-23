@@ -14,7 +14,7 @@ type Transaction struct {
 
 	// in 消费
 	In []*TXInput
-	//out 未花费
+	// out 未花费
 	Out []*TXOutput
 }
 
