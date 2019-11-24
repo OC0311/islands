@@ -17,8 +17,18 @@ var (
 		Short: "创建钱包",
 		Long:  ``,
 		Run: func(cmd *cobra.Command, args []string) {
-			wallet := wallet.NewWallets()
+			wallet, _ := wallet.NewWallets()
 			wallet.CreateNewWallet()
+		},
+	}
+
+	listWalletCmd = &cobra.Command{
+		Use:   "list",
+		Short: "创建钱包",
+		Long:  ``,
+		Run: func(cmd *cobra.Command, args []string) {
+			wallet, _ := wallet.NewWallets()
+			wallet.WalletList()
 		},
 	}
 )
@@ -26,4 +36,5 @@ var (
 func walletCmdExecute(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(walletCmd)
 	walletCmd.AddCommand(createWalletCmd)
+	walletCmd.AddCommand(listWalletCmd)
 }
