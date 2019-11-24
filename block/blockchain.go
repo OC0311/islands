@@ -1,11 +1,16 @@
 package block
 
 import (
+	"bytes"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"log"
+	"math/big"
 	"os"
 	"strconv"
+
+	"github.com/jiangjincc/islands/encryption"
 
 	"github.com/jiangjincc/islands/wallet"
 
@@ -14,7 +19,7 @@ import (
 
 const (
 	_genesisBlockHeight = 1
-	_dbName             = "/Users/admin/workspace/project/github.com/jiangjincc/islands/blockchain.db"
+	_dbName             = "blockchain.db"
 	_blockBucketName    = "blocks"
 	_topHash            = "top_hash"
 )
@@ -149,16 +154,21 @@ func (bc *Blockchain) MineNewBlock(from, to, amount []string) {
 	)
 
 	for index, address := range from {
-		if !wallet.IsValidForAddress([]byte(address)) || !!wallet.IsValidForAddress([]byte(to[index])) {
+		if !wallet.IsValidForAddress([]byte(address)) || !wallet.IsValidForAddress([]byte(to[index])) {
 			log.Println("无效地址")
 			os.Exit(1)
 		}
 	}
+
 	for i, address := range from {
 		// 构建多个交易
 		a, _ := strconv.Atoi(amount[i])
 		txs = append(txs, NewSimpleTransaction(address, to[i], int64(a), bc, txs))
 	}
+
+	// 添加矿工奖励
+	coinBase := NewCoinBaseTransaction(from[0])
+	txs = append(txs, coinBase)
 
 	// 获取最新区块
 	err := bc.DB.View(func(tx *bolt.Tx) error {
@@ -174,6 +184,14 @@ func (bc *Blockchain) MineNewBlock(from, to, amount []string) {
 
 	if err != nil {
 		panic(err)
+	}
+
+	// 对交易签名进行校验
+	for _, tx := range txs {
+		if !bc.VerifyTransaction(tx) {
+			fmt.Println(hex.EncodeToString(tx.TxHash))
+			log.Panic("无效的交易")
+		}
 	}
 
 	newBlock := NewBlock(txs, block.Height+1, block.Hash)
@@ -268,7 +286,11 @@ func (bc *Blockchain) UTXOs(address string, txs []*Transaction) []*UTXO {
 		if !tx.IsCoinbaseTransaction() {
 			// 是否是address 的花费
 			for _, in := range tx.In {
-				if in.UnLockWithAddress(address) {
+
+				publickHash := encryption.Base58Decode([]byte(address))
+				// 获取中间的public,标示是自己的花费
+				ripemd160Hash := publickHash[1 : len(publickHash)-4]
+				if in.UnLockWithAddress(ripemd160Hash) {
 					key := hex.EncodeToString(in.TxHash)
 					spentTxs[key] = append(spentTxs[key], in.Vout)
 				}
@@ -333,7 +355,10 @@ func (bc *Blockchain) UTXOs(address string, txs []*Transaction) []*UTXO {
 			if !tx.IsCoinbaseTransaction() {
 				// 是否是address 的花费
 				for _, in := range tx.In {
-					if in.UnLockWithAddress(address) {
+					publickHash := encryption.Base58Decode([]byte(address))
+					// 获取中间的public,标示是自己的花费
+					ripemd160Hash := publickHash[1 : len(publickHash)-4]
+					if in.UnLockWithAddress(ripemd160Hash) {
 						key := hex.EncodeToString(in.TxHash)
 						spentTxs[key] = append(spentTxs[key], in.Vout)
 					}
@@ -385,4 +410,63 @@ func (bc *Blockchain) UTXOs(address string, txs []*Transaction) []*UTXO {
 	}
 
 	return unUTXOs
+}
+
+func (bc *Blockchain) SignTransaction(tx *Transaction, priKey ecdsa.PrivateKey) {
+	if tx.IsCoinbaseTransaction() {
+		return
+	}
+
+	txMap := make(map[string]Transaction)
+	for _, in := range tx.In {
+		prevTx, err := bc.FindTransaction(in.TxHash)
+		if err != nil {
+			log.Panic(err)
+		}
+		txMap[hex.EncodeToString(prevTx.TxHash)] = prevTx
+	}
+
+	//  对每一笔交易签名
+	tx.Sign(priKey, txMap)
+}
+
+// 根据input ID查找交易
+func (bc *Blockchain) FindTransaction(id []byte) (Transaction, error) {
+	var (
+		currentHash []byte = bc.Tip
+	)
+
+	iterator := NewBlockIterator(bc.DB, currentHash)
+	for {
+		block, _ := iterator.Next()
+		for _, tx := range block.Txs {
+			if bytes.Compare(tx.TxHash, id) == 0 {
+				return *tx, nil
+			}
+		}
+
+		// 判断是否为创世区块
+		var hashInt big.Int
+		hashInt.SetBytes(block.PrevBlockHash)
+		if big.NewInt(0).Cmp(&hashInt) == 0 {
+			break
+		}
+
+	}
+
+	return Transaction{}, nil
+}
+
+// 验证交易
+func (bc *Blockchain) VerifyTransaction(tx *Transaction) bool {
+	txMap := make(map[string]Transaction)
+	for _, in := range tx.In {
+		prevTx, err := bc.FindTransaction(in.TxHash)
+		if err != nil {
+			log.Panic(err)
+		}
+		txMap[hex.EncodeToString(prevTx.TxHash)] = prevTx
+	}
+
+	return tx.Verify(txMap)
 }

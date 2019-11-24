@@ -23,11 +23,11 @@ type Block struct {
 }
 
 // 创建新的区块
-func NewBlock(data []*Transaction, height int64, PrevBlockHash []byte) *Block {
+func NewBlock(txs []*Transaction, height int64, PrevBlockHash []byte) *Block {
 	block := &Block{
 		Timestamp:     time.Now().UTC().Unix(),
 		PrevBlockHash: PrevBlockHash,
-		Txs:           data,
+		Txs:           txs,
 		Height:        height,
 	}
 
@@ -83,10 +83,10 @@ func (b *Block) PrintBlock() {
 		fmt.Println("交易信息:")
 
 		for _, vv := range v.In {
-			fmt.Println("交易输出", vv.ScriptSig, vv.Vout, hex.EncodeToString(vv.TxHash))
+			fmt.Println("交易输出", vv.PublicKey, vv.Vout, hex.EncodeToString(vv.TxHash))
 		}
 		for _, vv := range v.Out {
-			fmt.Println("未花费", vv.Value, vv.ScriptPubKey)
+			fmt.Println("未花费", vv.Value, vv.PublicKey)
 		}
 	}
 

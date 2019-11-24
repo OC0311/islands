@@ -8,8 +8,9 @@ import (
 	"crypto/sha256"
 	"log"
 
+	"github.com/jiangjincc/islands/utils"
+
 	"github.com/jiangjincc/islands/encryption"
-	"golang.org/x/crypto/ripemd160"
 )
 
 var (
@@ -24,7 +25,7 @@ type Wallet struct {
 
 func (w *Wallet) GetAddress() []byte {
 	// 1、先将PuKey 256 -> 160 = 20byte
-	ripemdHash := w.Ripemd160Hash(w.PublicKey)
+	ripemdHash := utils.Ripemd160Hash(w.PublicKey)
 	versionRipemd160Hash := append([]byte{version}, ripemdHash...)
 	checkSumBytes := CheckSum(versionRipemd160Hash)
 
@@ -35,24 +36,13 @@ func (w *Wallet) GetAddress() []byte {
 func IsValidForAddress(address []byte) bool {
 	versionPublicCheckSum := encryption.Base58Decode(address)
 	checkSumBytes := versionPublicCheckSum[len(versionPublicCheckSum)-checkLen:]
-	ripemd160CheckSUm := versionPublicCheckSum[0 : len(versionPublicCheckSum)-checkLen]
+	ripemd160CheckSum := versionPublicCheckSum[0 : len(versionPublicCheckSum)-checkLen]
 
-	checkBytes := CheckSum(ripemd160CheckSUm)
+	checkBytes := CheckSum(ripemd160CheckSum)
 	if bytes.Compare(checkSumBytes, checkBytes) == 0 {
 		return true
 	}
 	return false
-}
-
-func (w *Wallet) Ripemd160Hash(publicKey []byte) []byte {
-	hash256 := sha256.New()
-	hash256.Write(publicKey)
-	hash := hash256.Sum(nil)
-
-	ripemd := ripemd160.New()
-	ripemd.Write(hash)
-	ripemdHash := ripemd.Sum(nil)
-	return ripemdHash
 }
 
 func NewWallet() *Wallet {
