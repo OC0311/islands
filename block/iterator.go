@@ -13,6 +13,12 @@ type Iterator struct {
 }
 
 func NewBlockIterator(db *bolt.DB, current []byte) *Iterator {
+	db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(_blockBucketName))
+		current = b.Get([]byte(_topHash))
+		return nil
+	})
+
 	return &Iterator{
 		DB:          db,
 		CurrentHash: current,

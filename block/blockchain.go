@@ -10,6 +10,8 @@ import (
 	"os"
 	"strconv"
 
+	"github.com/jiangjincc/islands/utils"
+
 	"github.com/jiangjincc/islands/encryption"
 
 	"github.com/jiangjincc/islands/wallet"
@@ -66,10 +68,12 @@ func CreateBlockchainWithGenesisBlock(address string) {
 		return err
 	})
 
+	db.Close()
+
 	if err != nil {
 		log.Panic(err)
 	}
-
+	fmt.Println("init blockchain ok")
 }
 
 func GetBlockchain() *Blockchain {
@@ -82,7 +86,7 @@ func GetBlockchain() *Blockchain {
 		os.Exit(0)
 	}
 
-	db, err := bolt.Open(_dbName, 0600, nil)
+	db, err := bolt.Open(_dbName, 0755, nil)
 	if err != nil {
 		fmt.Println(err)
 		return nil
@@ -152,6 +156,7 @@ func (bc *Blockchain) MineNewBlock(from, to, amount []string) {
 		block *Block
 		txs   []*Transaction
 	)
+	utxoSet := &UTXOSet{Blockchain: bc}
 
 	for index, address := range from {
 		if !wallet.IsValidForAddress([]byte(address)) || !wallet.IsValidForAddress([]byte(to[index])) {
@@ -163,7 +168,7 @@ func (bc *Blockchain) MineNewBlock(from, to, amount []string) {
 	for i, address := range from {
 		// 构建多个交易
 		a, _ := strconv.Atoi(amount[i])
-		txs = append(txs, NewSimpleTransaction(address, to[i], int64(a), bc, txs))
+		txs = append(txs, NewSimpleTransaction(address, to[i], int64(a), utxoSet, txs))
 	}
 
 	// 添加矿工奖励
@@ -186,12 +191,15 @@ func (bc *Blockchain) MineNewBlock(from, to, amount []string) {
 		panic(err)
 	}
 
+	_txs := []*Transaction{}
 	// 对交易签名进行校验
 	for _, tx := range txs {
-		if !bc.VerifyTransaction(tx) {
+		if !bc.VerifyTransaction(tx, _txs) {
 			fmt.Println(hex.EncodeToString(tx.TxHash))
 			log.Panic("无效的交易")
 		}
+
+		_txs = append(_txs, tx)
 	}
 
 	newBlock := NewBlock(txs, block.Height+1, block.Hash)
@@ -412,14 +420,14 @@ func (bc *Blockchain) UTXOs(address string, txs []*Transaction) []*UTXO {
 	return unUTXOs
 }
 
-func (bc *Blockchain) SignTransaction(tx *Transaction, priKey ecdsa.PrivateKey) {
+func (bc *Blockchain) SignTransaction(tx *Transaction, priKey ecdsa.PrivateKey, txs []*Transaction) {
 	if tx.IsCoinbaseTransaction() {
 		return
 	}
 
 	txMap := make(map[string]Transaction)
 	for _, in := range tx.In {
-		prevTx, err := bc.FindTransaction(in.TxHash)
+		prevTx, err := bc.FindTransaction(in.TxHash, txs)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -431,10 +439,15 @@ func (bc *Blockchain) SignTransaction(tx *Transaction, priKey ecdsa.PrivateKey) 
 }
 
 // 根据input ID查找交易
-func (bc *Blockchain) FindTransaction(id []byte) (Transaction, error) {
+func (bc *Blockchain) FindTransaction(id []byte, txs []*Transaction) (Transaction, error) {
 	var (
 		currentHash []byte = bc.Tip
 	)
+	for _, tx := range txs {
+		if bytes.Compare(tx.TxHash, id) == 0 {
+			return *tx, nil
+		}
+	}
 
 	iterator := NewBlockIterator(bc.DB, currentHash)
 	for {
@@ -458,10 +471,10 @@ func (bc *Blockchain) FindTransaction(id []byte) (Transaction, error) {
 }
 
 // 验证交易
-func (bc *Blockchain) VerifyTransaction(tx *Transaction) bool {
+func (bc *Blockchain) VerifyTransaction(tx *Transaction, txs []*Transaction) bool {
 	txMap := make(map[string]Transaction)
 	for _, in := range tx.In {
-		prevTx, err := bc.FindTransaction(in.TxHash)
+		prevTx, err := bc.FindTransaction(in.TxHash, txs)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -469,4 +482,72 @@ func (bc *Blockchain) VerifyTransaction(tx *Transaction) bool {
 	}
 
 	return tx.Verify(txMap)
+}
+
+func (bc *Blockchain) FindUTXOMap() map[string]*TxOutOuts {
+	blcI := NewBlockIterator(bc.DB, bc.Tip)
+	spendUTXOMap := make(map[string][]*TXInput)
+	utxoMaps := make(map[string]*TxOutOuts)
+	for {
+		block, isNext := blcI.Next()
+		for i := len(block.Txs) - 1; i >= 0; i-- {
+			tx := block.Txs[i]
+
+			txOutputs := &TxOutOuts{}
+			if !tx.IsCoinbaseTransaction() {
+				// 遍历Input
+				for _, in := range tx.In {
+					txHash := hex.EncodeToString(in.TxHash)
+					spendUTXOMap[txHash] = append(spendUTXOMap[txHash], in)
+				}
+			}
+
+			txHash := hex.EncodeToString(tx.TxHash)
+		exitLoop:
+			for index, out := range tx.Out {
+
+				txInputs := spendUTXOMap[txHash]
+				if len(txInputs) > 0 {
+					isSpent := false
+					for _, in := range txInputs {
+						outPubKey := out.PublicKey
+						inPubKey := in.PublicKey
+
+						if bytes.Compare(outPubKey, utils.Ripemd160Hash(inPubKey)) == 0 {
+							if index == in.Vout {
+								isSpent = true
+								continue exitLoop
+							}
+						}
+					}
+
+					if !isSpent {
+						utxo := &UTXO{
+							TxHash: tx.TxHash,
+							Index:  index,
+							OutPut: out,
+						}
+						txOutputs.UTXOS = append(txOutputs.UTXOS, utxo)
+					}
+				} else {
+					utxo := &UTXO{
+						TxHash: tx.TxHash,
+						Index:  index,
+						OutPut: out,
+					}
+					txOutputs.UTXOS = append(txOutputs.UTXOS, utxo)
+				}
+
+			}
+
+			utxoMaps[txHash] = txOutputs
+		}
+		//
+		// 遍历input
+		if !isNext {
+			break
+		}
+	}
+
+	return utxoMaps
 }

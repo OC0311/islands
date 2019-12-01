@@ -10,7 +10,9 @@ import (
 	"encoding/hex"
 	"log"
 	"math/big"
+	"time"
 
+	"github.com/jiangjincc/islands/utils"
 	"github.com/jiangjincc/islands/wallet"
 )
 
@@ -46,7 +48,7 @@ func NewCoinBaseTransaction(address string) *Transaction {
 }
 
 // 2、转账产生的交易
-func NewSimpleTransaction(from, to string, amount int64, bc *Blockchain, tx []*Transaction) *Transaction {
+func NewSimpleTransaction(from, to string, amount int64, bc *UTXOSet, tx []*Transaction) *Transaction {
 	var (
 		txInputs  []*TXInput
 		txOutputs []*TXOutput
@@ -56,7 +58,8 @@ func NewSimpleTransaction(from, to string, amount int64, bc *Blockchain, tx []*T
 	//// 找到from 所有未花费的tx
 
 	// 找到需要花费的utxo
-	money, spendableUTXODic := bc.FindSpendableUTXOS(from, amount, tx)
+	//money, spendableUTXODic := bc.Blockchain.FindSpendableUTXOS(from, amount, tx)
+	money, spendableUTXODic := bc.Blockchain.FindSpendableUTXOS(from, amount, tx)
 	// 代表消费
 
 	for hash, indexArray := range spendableUTXODic {
@@ -86,7 +89,7 @@ func NewSimpleTransaction(from, to string, amount int64, bc *Blockchain, tx []*T
 
 	transaction.SetHash()
 	// 对交易进行签名
-	bc.SignTransaction(transaction, w.PrivateKey)
+	bc.Blockchain.SignTransaction(transaction, w.PrivateKey, tx)
 	return transaction
 }
 
@@ -105,7 +108,8 @@ func (t *Transaction) SetHash() {
 	if err != nil {
 		log.Panic(err)
 	}
-	hash := sha256.Sum256(result.Bytes())
+
+	hash := sha256.Sum256(bytes.Join([][]byte{utils.IntToHex(time.Now().Unix()), result.Bytes()}, []byte{}))
 
 	t.TxHash = hash[:]
 }

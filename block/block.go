@@ -10,6 +10,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/jiangjincc/islands/utils"
+
 	"github.com/jedib0t/go-pretty/table"
 )
 
@@ -83,16 +85,16 @@ func (b *Block) PrintBlock() {
 		fmt.Println("交易信息:")
 
 		for _, vv := range v.In {
-			fmt.Println("交易输出", vv.PublicKey, vv.Vout, hex.EncodeToString(vv.TxHash))
+			fmt.Println("交易输出", hex.EncodeToString(utils.Ripemd160Hash(vv.PublicKey)), vv.Vout, hex.EncodeToString(vv.TxHash))
 		}
 		for _, vv := range v.Out {
-			fmt.Println("未花费", vv.Value, vv.PublicKey)
+			fmt.Println("未花费", vv.Value, hex.EncodeToString(vv.PublicKey))
 		}
 	}
 
 	tb.AppendRows([]table.Row{
 		{"Height", b.Height},
-		{"Txs", b.HashTransaction()},
+		{"Txs", hex.EncodeToString(b.HashTransaction())},
 		{"Timestamp", time.Unix(b.Timestamp, 0).Format("2006-01-02 15:04:05")},
 		{"Nonce", b.Nonce},
 		{"Hash", byteForString(b.Hash)},

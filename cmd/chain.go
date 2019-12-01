@@ -48,8 +48,24 @@ var (
 		Short: "初始化区块链",
 		Long:  ``,
 		Run: func(cmd *cobra.Command, args []string) {
-
 			block.CreateBlockchainWithGenesisBlock(addresss)
+
+			blockchain := block.GetBlockchain()
+			utxoSet := &block.UTXOSet{Blockchain: blockchain}
+			utxoSet.ResetUTXOSet()
+		},
+	}
+	chainTestCmd = &cobra.Command{
+		Use:   "test",
+		Short: "测试",
+		Long:  ``,
+		Run: func(cmd *cobra.Command, args []string) {
+			//block := block.GetBlockchain()
+			//utxoMap := block.FindUTXOMap()
+			//fmt.Println(utxoMap)
+			blockchain := block.GetBlockchain()
+			utxoSet := &block.UTXOSet{Blockchain: blockchain}
+			utxoSet.ResetUTXOSet()
 		},
 	}
 )
@@ -66,4 +82,5 @@ func chainCmdExecute(rootCmd *cobra.Command) {
 	chainCmd.AddCommand(chainAddCmd)
 	chainCmd.AddCommand(chainListCmd)
 	chainCmd.AddCommand(chainInitCmd)
+	chainCmd.AddCommand(chainTestCmd)
 }

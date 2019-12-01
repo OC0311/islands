@@ -1,9 +1,12 @@
 package cmd
 
 import (
-	"github.com/jiangjincc/islands/block"
+	"fmt"
 
 	"github.com/jiangjincc/islands/utils"
+
+	"github.com/jiangjincc/islands/block"
+
 	"github.com/spf13/cobra"
 )
 
@@ -28,6 +31,10 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			b := block.GetBlockchain()
 			b.MineNewBlock(utils.JsonToArray(from), utils.JsonToArray(to), utils.JsonToArray(amount))
+
+			// 更新utxo表
+			utxoSet := &block.UTXOSet{Blockchain: b}
+			utxoSet.Update()
 		},
 	}
 
@@ -37,8 +44,11 @@ var (
 		Long:  ``,
 		Run: func(cmd *cobra.Command, args []string) {
 			b := block.GetBlockchain()
-			b.GetBalance(address)
 
+			utxoSet := block.UTXOSet{Blockchain: b}
+			amount := utxoSet.GetBalance(address)
+			//b.GetBalance(address)
+			fmt.Printf("账户[ %s ]余额为: %d \n", address, amount)
 		},
 	}
 )

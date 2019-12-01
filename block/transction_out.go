@@ -20,8 +20,8 @@ func (out *TXOutput) Lock(address string) {
 func (out *TXOutput) UnLockWithAddress(address string) bool {
 	publickHash := encryption.Base58Decode([]byte(address))
 	// 获取中间的public
-	hash160 := publickHash[1 : len(publickHash)-4]
-	return bytes.Compare(out.PublicKey, hash160) == 0
+	publicKey := publickHash[1 : len(publickHash)-4]
+	return bytes.Compare(out.PublicKey, publicKey) == 0
 }
 
 func NewTxOutput(value int64, address string) *TXOutput {
