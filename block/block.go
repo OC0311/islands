@@ -2,7 +2,6 @@ package block
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"encoding/gob"
 	"encoding/hex"
 	"fmt"
@@ -61,18 +60,22 @@ func (b *Block) Serialize() []byte {
 }
 
 func (b *Block) HashTransaction() []byte {
-	var (
-		txs  [][]byte
-		hash [32]byte
-	)
-
-	// 只对hash进行计算
-	for i := 0; i < len(b.Txs); i++ {
-		txs = append(txs, b.Txs[i].TxHash)
+	//var (
+	//	txs  [][]byte
+	//	hash [32]byte
+	//)
+	//
+	//// 只对hash进行计算
+	//for i := 0; i < len(b.Txs); i++ {
+	//	txs = append(txs, b.Txs[i].TxHash)
+	//}
+	//hash = sha256.Sum256(bytes.Join(txs, []byte{}))
+	var transaction [][]byte
+	for _, tx := range b.Txs {
+		transaction = append(transaction, tx.Serialize())
 	}
-	hash = sha256.Sum256(bytes.Join(txs, []byte{}))
-
-	return hash[:]
+	mTree := NewMerkleTree(transaction)
+	return mTree.RootNode.Data
 }
 
 func (b *Block) PrintBlock() {
