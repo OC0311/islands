@@ -21,9 +21,13 @@ import (
 
 const (
 	_genesisBlockHeight = 1
-	_dbName             = "blockchain.db"
-	_blockBucketName    = "blocks"
-	_topHash            = "top_hash"
+
+	_blockBucketName = "blocks"
+	_topHash         = "top_hash"
+)
+
+var (
+	dbName = utils.GetDBPath("blockchain.db")
 )
 
 // 存储有序的区块
@@ -35,7 +39,7 @@ type Blockchain struct {
 // 生成创世区块函数的blockchain
 func CreateBlockchainWithGenesisBlock(address string) {
 	// 判断数据库文件是否存在
-	if dbIsExist(_dbName) {
+	if dbIsExist(dbName) {
 		fmt.Println("区块已经存在")
 		return
 	}
@@ -45,7 +49,7 @@ func CreateBlockchainWithGenesisBlock(address string) {
 		os.Exit(1)
 	}
 
-	db, err := bolt.Open(_dbName, 0600, nil)
+	db, err := bolt.Open(dbName, 0600, nil)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -81,12 +85,12 @@ func GetBlockchain() *Blockchain {
 		blockchain *Blockchain
 	)
 
-	if !dbIsExist(_dbName) {
+	if !dbIsExist(dbName) {
 		fmt.Println("请初始化区块链")
 		os.Exit(0)
 	}
 
-	db, err := bolt.Open(_dbName, 0755, nil)
+	db, err := bolt.Open(dbName, 0755, nil)
 	if err != nil {
 		fmt.Println(err)
 		return nil

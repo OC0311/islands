@@ -10,11 +10,13 @@ import (
 	"log"
 	"os"
 
+	"github.com/jiangjincc/islands/utils"
+
 	"golang.org/x/crypto/ripemd160"
 )
 
-const (
-	walletFile = "wallets.dat"
+var (
+	walletFile = utils.GetWalletPath("wallets.dat")
 )
 
 // 钱包

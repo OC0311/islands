@@ -20,6 +20,7 @@ func NewMerkleTree(data [][]byte) *MerkleTree {
 		data = append(data, data[len(data)-1])
 	}
 
+	// 构建叶子节点
 	for _, datum := range data {
 		node := NewMerkleNode(nil, nil, datum)
 		nodes = append(nodes, *node)
