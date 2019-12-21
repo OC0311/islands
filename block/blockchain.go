@@ -546,12 +546,66 @@ func (bc *Blockchain) FindUTXOMap() map[string]*TxOutOuts {
 
 			utxoMaps[txHash] = txOutputs
 		}
-		//
+
 		// 遍历input
 		if !isNext {
 			break
 		}
 	}
-
 	return utxoMaps
+}
+
+// 获取当前区块的高度
+func (bc *Blockchain) GetHeight() int64 {
+	b, _ := NewBlockIterator(bc.DB, bc.Tip).Next()
+	return b.Height
+}
+
+// 获取所有的hash
+func (bc *Blockchain) GetBlockHashs() [][]byte {
+	var hashs [][]byte
+	b, isNext := NewBlockIterator(bc.DB, bc.Tip).Next()
+	if !isNext {
+
+	}
+	hashs = append(hashs, b.Hash)
+	return hashs
+}
+
+// 根据hash指定block
+func (bc *Blockchain) GetBlock(hash []byte) []byte {
+	var blockByte []byte
+	bc.DB.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(utils.GetDBPath(_blockBucketName)))
+		blockByte = b.Get(hash)
+		return nil
+	})
+
+	return blockByte
+}
+
+func (bc *Blockchain) AddBlock(block *Block) {
+	bc.DB.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte(utils.GetDBPath(_blockBucketName)))
+		if b != nil {
+			if b.Get(block.Hash) != nil {
+				return nil
+			}
+		}
+
+		// 添加
+		err := b.Put(block.Hash, block.Serialize())
+		if err != nil {
+			log.Printf("sync the block failed %v\n", err)
+		}
+
+		blockHash := b.Get([]byte(_topHash))
+		latesBlock := b.Get(blockHash)
+		rawBlock := UnSerialize(latesBlock)
+		if rawBlock.Height < block.Height {
+			b.Put([]byte(_topHash), block.Hash)
+			bc.Tip = block.Hash
+		}
+		return nil
+	})
 }

@@ -16,5 +16,6 @@ func CmdExecute() {
 	chainCmdExecute(rootCmd)
 	txCmdExecute(rootCmd)
 	walletCmdExecute(rootCmd)
+	nodeCmdExecute(rootCmd)
 	_ = rootCmd.Execute()
 }
